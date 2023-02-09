@@ -60,9 +60,14 @@ def prettyprint_response(response:requests.Response):
         elif action == "isvalid":
             result = res["is valid pnum"]
             output += "The personal number is" + (" not " if result == "no" else " " )+ "valid."
+            if result == "no":
+                output += "\nReason: "
+                output += res["reason"]
         elif action == "isregistered":
             result = res["is in dataset"]
             output += "The personal number is" + (" not " if result == "no" else " ") + "registered."
+            if res["is valid pnum"] == "no":
+                output += "\nNotice that the pnum provided is invalid."
         print(output)
         print("")
 
@@ -93,7 +98,7 @@ parser = argparse.ArgumentParser(
 # Add arguments for desired action, and optional arguments for personal number input, saving the response 
 # and providing a more detailed output to user
 parser.add_argument("action", choices=["isvalid", "isregistered", "gender", "age", "listall", "listbygroups"])
-parser.add_argument("-p", "--pnum", nargs=1, metavar='', help="\t\tpersonal number for lookup")
+parser.add_argument("-p", "--pnum", metavar='', help="\t\tpersonal number for lookup")
 parser.add_argument("-s", "--save", action="store_true", help="save response to json file")
 parser.add_argument("-v", "--verbose", action="store_true", help="print detailed output")
 args = parser.parse_args()
@@ -112,7 +117,7 @@ else:
         raise SystemExit(2)
 
 # Define base url to access endpoints
-base_url = "http://0.0.0.0:5001/pnums/"
+base_url = "http://0.0.0.0:5000/pnums/"
 
 # Send request to correct endpoint
 if args.pnum:
@@ -123,6 +128,18 @@ else:
     if args.verbose:
         print("\nSending request with action '" + args.action + "'.")
     response = send_request(base_url=base_url, action=args.action)
+
+# Check successful request
+if response.status_code != 200:
+    if args.verbose:
+        print("Unsuccessful request with status code ", response.status_code)
+        print("Error message: ")
+        if "Error message" in response.json():
+            error = response.json().get("Error message")
+            print(error)
+    else:
+        print("Bad request", response.status_code)
+    raise SystemExit(1)
 
 # Print response if verbose flag activated
 if args.verbose:
